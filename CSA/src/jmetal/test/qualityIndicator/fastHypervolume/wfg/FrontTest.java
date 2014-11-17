@@ -1,4 +1,4 @@
-package qualityIndicator.fastHypervolume.wfg;
+package jmetal.test.qualityIndicator.fastHypervolume.wfg;
 
 import jmetal.qualityIndicator.fastHypervolume.wfg.Front;
 import org.junit.Before;

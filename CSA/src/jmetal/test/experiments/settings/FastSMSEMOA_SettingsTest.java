@@ -1,4 +1,4 @@
-package experiments.settings;
+package jmetal.test.experiments.settings;
 
 import jmetal.core.Algorithm;
 import jmetal.core.Problem;

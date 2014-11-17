@@ -1,4 +1,4 @@
-package experiments.settings;
+package jmetal.test.experiments.settings;
 
 /**
  * Created by antelverde on 09/12/13.
