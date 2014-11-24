@@ -100,9 +100,9 @@ try {
 	// read the data file 
 	source = new DataSource(this.dataFileName);
 	Instances data = source.getDataSet();
-	System.out.print("Data read successfully. ");
-	System.out.print("Number of attributes: " + data.numAttributes());
-	System.out.println(". Number of instances: " + data.numInstances());
+	//System.out.print("Data read successfully. ");
+	//System.out.print("Number of attributes: " + data.numAttributes());
+	//System.out.println(". Number of instances: " + data.numInstances());
 
 	
 	// First filter the data based on chromosome
@@ -112,7 +112,7 @@ try {
 	// Again Filter the attribute 'T'
 	Remove filter = new Remove();
 	filter.setAttributeIndices(""+tmpData.numAttributes()); // remove the last attribute : 'T'
-	System.out.println("After chromosome filtering no of attributes: " + tmpData.numAttributes());
+	//System.out.println("After chromosome filtering no of attributes: " + tmpData.numAttributes());
 	filter.setInputFormat(tmpData);
 	Instances dataClusterer = Filter.useFilter(tmpData, filter);
 	
@@ -145,12 +145,12 @@ try {
 	int[] clusterAssignment = new int[dataClusterer.numInstances()];	
 	for (int i=0; i<dataClusterer.numInstances(); ++i){
 		clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
-		System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+		//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
 	}
 	
 	
 	Instances[] classInstances = separateClassInstances(clusterAssignment, this.dataFileName,solution);
-	System.out.println("Class instances seperated");
+	//System.out.println("Class instances seperated");
 	
 	
 	
