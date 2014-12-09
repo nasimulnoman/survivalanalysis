@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/weka.jar"/>
 	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/jmetal4.5.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="lib" path="/home/nasimul/workspace/TestWeka/javastatsoft_beta1.3.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/JRI.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/JRIEngine.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/REngine.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

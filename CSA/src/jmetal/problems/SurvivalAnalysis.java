@@ -22,7 +22,11 @@ package jmetal.problems ;
 
 import java.io.File;
 
+import org.rosuda.JRI.Rengine;
+import org.rosuda.JRI.REXP;
+
 import weka.clusterers.HierarchicalClusterer;
+import weka.core.Attribute;
 import weka.core.EuclideanDistance;
 import weka.core.Instances;
 import weka.core.converters.ArffSaver;
@@ -33,216 +37,373 @@ import jmetal.core.Problem;
 import jmetal.core.Solution;
 import jmetal.encodings.solutionType.BinarySolutionType;
 import jmetal.encodings.variable.Binary;
+import javastat.survival.inference.LogRankTest;
+import javastat.survival.inference.WilcoxonTest;
+import javastat.StatisticalAnalysis;
 
 /**
-* Class representing problem SurvivalAnalysis. The problem consist of feature selection
-* using Survival Analysis curve. The features are selected using a binary string
-* where '1's and '0's represents the selected and non-selected features respectively.
-*/
+ * Class representing problem SurvivalAnalysis. The problem consist of feature selection
+ * using Survival Analysis curve. The features are selected using a binary string
+ * where '1's and '0's represents the selected and non-selected features respectively.
+ */
 
 public class SurvivalAnalysis extends Problem {
 
 	private String dataFileName;
- /**
-  * Creates a new SurvivalAnalysis problem instance
-* @param solutionType Solution type
- * @throws ClassNotFoundException 
- * default problem size 1000
-  */
-public SurvivalAnalysis(String solutionType) throws ClassNotFoundException {
-	this(solutionType, 1000, null) ;
-}
-
-/**
-* Creates a new SurvivalAnalysis problem instance
-* @param solutionType Solution type
-* @param numberOfBits Length of the problem
-*/
-public SurvivalAnalysis(String solutionType, Integer numberOfBits, String dataFileName) {
-numberOfVariables_  = 1;
-numberOfObjectives_ = 2;
-numberOfConstraints_= 0;
-problemName_        = "SurvivalAnalysis";
-this.dataFileName = dataFileName;
-         
-solutionType_ = new BinarySolutionType(this) ;
-	    
-length_       = new int[numberOfVariables_];
-length_      [0] = numberOfBits ;
-
-if (solutionType.compareTo("Binary") == 0)
-	solutionType_ = new BinarySolutionType(this) ;
-else {
-	System.out.println("SurvivalAnalaysis: solution type " + solutionType + " invalid") ;
-	System.exit(-1) ;
-}  
-
-} // SurvivalAnalysis
-
-/** 
-* Evaluates a solution 
-* @param solution The solution to evaluate
-*/      
-public void evaluate(Solution solution) {
-Binary variable ;
-int    counterOnes   ;
-int    counterZeroes ;
-DataSource source;
-
-variable = ((Binary)solution.getDecisionVariables()[0]) ;
-
-counterOnes = 0 ;
-counterZeroes = 0 ;
-
-
-
-try {
-	// read the data file 
-	source = new DataSource(this.dataFileName);
-	Instances data = source.getDataSet();
-	//System.out.print("Data read successfully. ");
-	//System.out.print("Number of attributes: " + data.numAttributes());
-	//System.out.println(". Number of instances: " + data.numInstances());
-
+	private Attribute attTime;
+	private Attribute attCensor;
 	
-	// First filter the data based on chromosome
-	Instances tmpData = this.filterByChromosome(data, solution);
+	public Rengine re;
+	private Boolean pValueFlag; // Flag to determine which score to be used true: pvalue and false: statisticscore
+	private Boolean featureMax; // Flag to determine feature to be minimized or maximized: true: maximized, false: minimized
 	
-	
-	// Again Filter the attribute 'T'
-	Remove filter = new Remove();
-	filter.setAttributeIndices(""+tmpData.numAttributes()); // remove the last attribute : 'T'
-	//System.out.println("After chromosome filtering no of attributes: " + tmpData.numAttributes());
-	filter.setInputFormat(tmpData);
-	Instances dataClusterer = Filter.useFilter(tmpData, filter);
-	
-	// filtering complete
-	
-	
-	
-	// Debug: write the filtered dataset
-	 /*
+	/**
+	 * Creates a new SurvivalAnalysis problem instance
+	 * @param solutionType Solution type
+	 * @throws ClassNotFoundException 
+	 * default problem size 1000
+	 */
+	/*
+	public SurvivalAnalysis(String solutionType) throws ClassNotFoundException {
+		this(solutionType, 1000, null) ;
+	}
+	*/
+
+	/**
+	 * Creates a new SurvivalAnalysis problem instance
+	 * @param solutionType Solution type
+	 * @param numberOfBits Length of the problem
+	 */
+	public SurvivalAnalysis(String solutionType, Integer numberOfBits, String dataFileName, Rengine rEng, Boolean pVal, Boolean fMax) {
+		numberOfVariables_  = 1;
+		numberOfObjectives_ = 2;
+		numberOfConstraints_= 0;
+		problemName_        = "SurvivalAnalysis";
+		this.dataFileName = dataFileName;
+		this.re=rEng;
+		this.pValueFlag = pVal;
+		this.featureMax = fMax;
+		
+		solutionType_ = new BinarySolutionType(this) ;
+
+		length_       = new int[numberOfVariables_];
+		length_      [0] = numberOfBits ;
+
+		if (solutionType.compareTo("Binary") == 0)
+			solutionType_ = new BinarySolutionType(this) ;
+		else {
+			System.out.println("SurvivalAnalaysis: solution type " + solutionType + " invalid") ;
+			System.exit(-1) ;
+		}  
+		
+		if (this.pValueFlag){
+			System.out.print("Survival Analysis.Obj 1: pValue minimization. "); 
+		}
+		else{
+			System.out.print("Survival Analysis.Obj 1: statScore maximization. "); 
+		}
+		if (this.featureMax){
+			System.out.println("Obj 2: feature maximization.");
+		}
+		else{
+			System.out.println("Obj 2: feature minimization.");
+		}
+
+	} // SurvivalAnalysis
+
+	/** 
+	 * Evaluates a solution 
+	 * @param solution The solution to evaluate
+	 */      
+	public void evaluate(Solution solution) {
+		Binary variable ;
+		int    counterSelectedFeatures;
+
+		DataSource source;
+
+		double testStatistic = Double.MAX_VALUE;
+		double pValue= Double.MAX_VALUE;
+		//double statScore;
+		REXP x;
+
+		
+		variable = ((Binary)solution.getDecisionVariables()[0]) ;
+
+		counterSelectedFeatures = 0 ;
+
+
+
+		try {
+			// read the data file 
+			source = new DataSource(this.dataFileName);
+			Instances data = source.getDataSet();
+			//System.out.print("Data read successfully. ");
+			//System.out.print("Number of attributes: " + data.numAttributes());
+			//System.out.println(". Number of instances: " + data.numInstances());
+
+
+			// save the attribute 'T' and 'Censor'
+			attTime = data.attribute(data.numAttributes()-2);
+			attCensor = data.attribute(data.numAttributes()-1);
+
+			
+			// First filter the attributes based on chromosome
+			Instances tmpData = this.filterByChromosome(data, solution);
+
+
+			// Now filter the attribute 'T' and 'Censor'
+			Remove filter = new Remove();
+			 // remove the two last attributes : 'T' and 'Censor'
+			filter.setAttributeIndices(""+(tmpData.numAttributes()-1)+","+tmpData.numAttributes());
+			//System.out.println("After chromosome filtering no of attributes: " + tmpData.numAttributes());
+			filter.setInputFormat(tmpData);
+			Instances dataClusterer = Filter.useFilter(tmpData, filter);
+
+			// filtering complete
+
+
+
+			// Debug: write the filtered dataset
+			/*
 	 ArffSaver saver = new ArffSaver();
 	 saver.setInstances(dataClusterer);
 	 saver.setFile(new File("filteered-data.arff"));
 	 saver.writeBatch();
-    */
+			 */
+
+
+
+			// train hierarchical clusterer
+
+			HierarchicalClusterer clusterer = new HierarchicalClusterer();
+			clusterer.setOptions(new String[] {"-L", "COMPLETE"});  // complete linkage clustering
+			clusterer.setDebug(true);
+			clusterer.setNumClusters(2);
+			clusterer.setDistanceFunction(new EuclideanDistance());
+			clusterer.setDistanceIsBranchLength(true);
+
+			clusterer.buildClusterer(dataClusterer);
+
+			
+			// save the cluster assignments
+			/*
+			int[] clusterAssignment = new int[dataClusterer.numInstances()];
+			int classOneCnt = 0;
+			int classTwoCnt = 0;
+			for (int i=0; i<dataClusterer.numInstances(); ++i){
+				clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
+				if (clusterAssignment[i]==0){
+					++classOneCnt;
+				}
+				else if (clusterAssignment[i]==1){
+					++classTwoCnt;
+				}
+				//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+			}true
+
+			//System.out.println("Class 1 cnt: " + classOneCnt + " Class 2 cnt: " + classTwoCnt);
+v
+
+			
+			// create arrays with time (event occurrence time) and censor data for use with jstat LogRankTest
+			double[] time1 = new double[classOneCnt];	
+			double[] censor1 = new double[classOneCnt];
+			double[] time2 = new double[classTwoCnt];
+			double[] censor2 = new double[classTwoCnt];
+
+
+			//data = source.getDataSet();
+			for (int i=0, cnt1=0, cnt2=0; i<dataClusterer.numInstances(); ++i){
+				clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
+				if (clusterAssignment[i]==0){
+					time1[cnt1] = data.get(i).value(attTime);
+					censor1[cnt1++] = 1;
+					//System.out.println("i: " + i + " T: " + time1[cnt1-1]);
+				}
+				else if (clusterAssignment[i]==1){
+					time2[cnt2] = data.get(i).value(attTime);
+					//System.out.println("i: " + i + " T: " + time2[cnt2-1]);
+					censor2[cnt2++] = 1;
+				}
+				//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+			}
+v
+
+
+			//Instances[] classInstances = separateClassInstances(clusterAssignment, this.dataFileName,solution);
+			//System.out.println("Class instances seperated");
+
+			// calculate log rank test and p values
+			
+			//LogRankTest testclass1 = new LogRankTest(time1, censor1, time2, censor2);
+			//testStatistic = testclass1.testStatistic;
+			//pValue = testclass1.pValue;
+
+
+			WilcoxonTest testclass1 = new WilcoxonTest(time1, censor1, time2, censor2);
+			testStatistic = testclass1.testStatistic;
+			pValue = testclass1.pValue;true
+*/
+
+			String strT = "time <- c(";
+			String strC = "censor <- c(";
+			String strG = "group <- c(";
+
+			
+			for (int i=0; i<dataClusterer.numInstances()-1; ++i){
+				strT = strT + (int) data.get(i).value(attTime) + ",";
+				strG = strG + clusterer.clusterInstance(dataClusterer.get(i)) + ",";
+				strC = strC + (int) data.get(i).value(attCensor) + ",";
+			}
+
+			int tmpi = dataClusterer.numInstances() -1;
+			strT = strT + (int) data.get(tmpi).value(attTime) + ")";
+			strG = strG + clusterer.clusterInstance(dataClusterer.get(tmpi)) + ")";
+			strC = strC + (int) data.get(tmpi).value(attCensor)+")";
+			
+			
+			this.re.eval(strT);
+			this.re.eval(strC);
+			this.re.eval(strG);
+
+
+			/** If you are calling surv_test from coin library */
+			/*v
+			re.eval("library(coin)");
+			re.eval("grp <- factor (group)");
+			re.eval("result <- surv_test(Surv(time,censor)~grp,distribution=\"exact\")");
+
+			x=re.eval("statistic(result)");
+			testStatistic = x.asDouble();
+			//x=re.eval("pvalue(result)");
+			//pValue = x.asDouble();
+			//System.out.println("StatScore: " + statScore + "pValue: " + pValue);
+			*/
+			
+			/** If you are calling survdiff from survival library (much faster) */
+			re.eval("library(survival)");
+			re.eval("res2 <- survdiff(Surv(time,censor)~group,rho=0)");
+			x=re.eval("res2$chisq");
+			testStatistic=x.asDouble();
+			//System.out.println(x);
+			x = re.eval("pchisq(res2$chisq, df=1, lower.tail = FALSE)");
+			//x = re.eval("1.0 - pchisq(res2$chisq, df=1)");
+			pValue = x.asDouble();
+			//System.out.println("StatScore: " + statScore + "pValue: " + pValue);
+
 	
-	
-	
-	// train hierarchical clusterer
-	
-	HierarchicalClusterer clusterer = new HierarchicalClusterer();
-	clusterer.setOptions(new String[] {"-L", "COMPLETE"});  // complete linkage clustering
-	clusterer.setDebug(true);
-	clusterer.setNumClusters(2);
-	clusterer.setDistanceFunction(new EuclideanDistance());
-	clusterer.setDistanceIsBranchLength(true);
-	
-	clusterer.buildClusterer(dataClusterer);
-	
-	// save the cluster assignments
-	int[] clusterAssignment = new int[dataClusterer.numInstances()];	
-	for (int i=0; i<dataClusterer.numInstances(); ++i){
-		clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
-		//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			System.err.println("Can't open the data file.");
+			e.printStackTrace();
+			System.exit(1);
+		}
+
+		/**********
+		 *  Current Implementation considers two objectives
+		 *  1. pvalue to be minimized / statistical score to be maximized
+		 *  2. Number of Features to be maximized/minimized
+		 */
+		
+		
+		// Currently this section implements the OneZeroMax problem - need to modify it
+		for (int i = 0; i < variable.getNumberOfBits() ; i++) 
+			if (variable.bits_.get(i))
+				counterSelectedFeatures++ ;
+
+		// OneZeroMax is a maximization problem: multiply by -1 to minimize
+		/*
+		if (Double.isNaN(testStatistic)){
+			solution.setObjective(0,Double.MAX_VALUE);
+		}
+		else{
+			solution.setObjective(0, testStatistic);
+		}
+		*/
+		
+		if (this.pValueFlag){
+			solution.setObjective(0, pValue);  // pValue to be minimized
+		}
+		else{
+			solution.setObjective(0, -1.0*testStatistic); // statistic score to be maximized
+		}
+		if (this.featureMax){
+			solution.setObjective(1, -1.0*counterSelectedFeatures);        // feature maximized
+		}
+		else{
+			solution.setObjective(1, counterSelectedFeatures);        // feature minimized
+		}
+	} // evaluate
+
+
+	/*******************************************************
+	 * Separates the data file into two based on class assignments of instances 
+	 * @param classAssignment
+	 * @param fileName
+	 * @return
+	 * @throws Exception
+	 */
+
+	private Instances[] separateClassInstances(int[] classAssignment, String fileName, Solution solution) throws Exception{
+		Instances classInstances[] = new Instances[2];
+		Instances tmpInstances[] = new Instances[2];
+		DataSource source = new DataSource(fileName);
+
+		tmpInstances[0] = source.getDataSet();
+		tmpInstances[1] = source.getDataSet();
+
+
+		// First filter the attributes based on chromosome
+		classInstances[0] = filterByChromosome(tmpInstances[0],solution);
+		classInstances[1] = filterByChromosome(tmpInstances[1],solution);
+
+
+		// Now filter instances into two files based on class assignment
+
+		// filter class 1 instances : remains class 0 instances
+		for (int i= classAssignment.length-1; i>=0; --i) {
+			//Instance inst = classInstances[0].get(i);
+			if (classAssignment[i] == 0) {
+				classInstances[0].delete(i);
+			}
+		}
+
+		// filter class 0 instances : remains class 1 instances
+		for (int i= classAssignment.length-1; i>=0; --i) {
+			//Instance inst = classInstances[0].get(i);
+			if (classAssignment[i] == 1) {
+				classInstances[1].delete(i);
+			}
+		}
+
+		// Save instances
+
+		ArffSaver saver = new ArffSaver();
+		saver.setInstances(classInstances[0]);
+		saver.setFile(new File("class-0.arff"));
+		//saver.setDestination(new File("./data/test.arff"));   // **not** necessary in 3.5.4 and later
+		saver.writeBatch();
+
+		saver = new ArffSaver();
+		saver.setInstances(classInstances[1]);
+		saver.setFile(new File("class-1.arff"));
+		//saver.setDestination(new File("./data/test.arff"));   // **not** necessary in 3.5.4 and later
+		saver.writeBatch();
+
+
+		return classInstances;
 	}
-	
-	
-	Instances[] classInstances = separateClassInstances(clusterAssignment, this.dataFileName,solution);
-	//System.out.println("Class instances seperated");
-	
-	
-	
-				
-} catch (Exception e) {
-	// TODO Auto-generated catch block
-	System.err.println("Can't open the data file.");
-	e.printStackTrace();
-	System.exit(1);
-}
 
-// Currently this section implements the OneZeroMax problem - need to modify it
-for (int i = 0; i < variable.getNumberOfBits() ; i++) 
-  if (variable.bits_.get(i))
-    counterOnes ++ ;
-  else
-  	counterZeroes ++ ;
+	/******************************************************
+	 * Filters the features based on the current chromosome/solution
+	 *  
+	 */
+	Instances filterByChromosome(Instances data, Solution solution){
 
-// OneZeroMax is a maximization problem: multiply by -1 to minimize
-solution.setObjective(0, -1.0*counterOnes);            
-solution.setObjective(1, -1.0*counterZeroes);            
-} // evaluate
+		Binary variable = ((Binary)solution.getDecisionVariables()[0]) ;
+		Instances dataClusterer = null;
 
-
-/*******************************************************
- * Separates the data file into two based on class assignments of instances 
- * @param classAssignment
- * @param fileName
- * @return
- * @throws Exception
- */
-
-private Instances[] separateClassInstances(int[] classAssignment, String fileName, Solution solution) throws Exception{
-	Instances classInstances[] = new Instances[2];
-	Instances tmpInstances[] = new Instances[2];
-	DataSource source = new DataSource(fileName);
-	
-	tmpInstances[0] = source.getDataSet();
-	tmpInstances[1] = source.getDataSet();
-	
-	
-	// First filter the attributes based on chromosome
-	classInstances[0] = filterByChromosome(tmpInstances[0],solution);
-	classInstances[1] = filterByChromosome(tmpInstances[1],solution);
-	
-	
-	// Now filter instances into two files based on class assignment
-	
-	// filter class 1 instances : remains class 0 instances
-	for (int i= classAssignment.length-1; i>=0; --i) {
-	    //Instance inst = classInstances[0].get(i);
-	    if (classAssignment[i] == 0) {
-	        classInstances[0].delete(i);
-	    }
-	}
-	
-	// filter class 0 instances : remains class 1 instances
-	for (int i= classAssignment.length-1; i>=0; --i) {
-	    //Instance inst = classInstances[0].get(i);
-	    if (classAssignment[i] == 1) {
-	        classInstances[1].delete(i);
-	    }
-	}
-	
-	// Save instances
-	
-	 ArffSaver saver = new ArffSaver();
-	 saver.setInstances(classInstances[0]);
-	 saver.setFile(new File("class-0.arff"));
-	 //saver.setDestination(new File("./data/test.arff"));   // **not** necessary in 3.5.4 and later
-	 saver.writeBatch();
-
-	 saver = new ArffSaver();
-	 saver.setInstances(classInstances[1]);
-	 saver.setFile(new File("class-1.arff"));
-	 //saver.setDestination(new File("./data/test.arff"));   // **not** necessary in 3.5.4 and later
-	 saver.writeBatch();
-
-	 
-	return classInstances;
-}
-
-/******************************************************
- * Filters the features based on the current chromosome/solution
- *  
- */
-  Instances filterByChromosome(Instances data, Solution solution){
-	  
-	  Binary variable = ((Binary)solution.getDecisionVariables()[0]) ;
-	  Instances dataClusterer = null;
-	  
-	// Use the individual chromosome as the selected features: '1' selected, '0' filtered
+		// Use the individual chromosome as the selected features: '1' selected, '0' filtered
 		// i.e. Select attributes to be removed based on Individual's chromosome
 		Remove filter = new Remove();
 		int cntFilteredAttr = 0;  // count the number of attributes to be removed
@@ -251,7 +412,7 @@ private Instances[] separateClassInstances(int[] classAssignment, String fileNam
 				++cntFilteredAttr;
 			}
 		}
-		
+
 		int[] filteredAttributes = new int[cntFilteredAttr];
 		for (int i=0,j=0; i<variable.getNumberOfBits(); ++i){
 			if (!variable.bits_.get(i)){
@@ -259,7 +420,7 @@ private Instances[] separateClassInstances(int[] classAssignment, String fileNam
 				++j;
 			}
 		}
-		
+
 		filter.setAttributeIndicesArray(filteredAttributes);
 		try {
 			filter.setInputFormat(data);
@@ -269,10 +430,10 @@ private Instances[] separateClassInstances(int[] classAssignment, String fileNam
 			System.err.print("Problem in filtering attributes according to chromosome");
 			e.printStackTrace();
 		}
-		
+
 		// filtering complete
 		return (dataClusterer);
-  }
-  
-  
+	}
+
+
 } // SurvivalAnalysis

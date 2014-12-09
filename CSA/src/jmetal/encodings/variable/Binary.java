@@ -67,6 +67,22 @@ public class Binary extends Variable {
     }
   } //Binary
   
+  /*
+  public Binary(String str){
+	  numberOfBits_=str.length();
+	  bits_= new BitSet(numberOfBits_);
+	  for (int i=0; i<numberOfBits_;i++){
+		  if(str.charAt(i)=='0'){
+			  bits_.set(i,false);
+		  }
+		  else{
+			  bits_.set(i,true);
+		  }
+	  }
+  }
+  */
+  
+  
   /**
    * Copy constructor.
    * @param variable The Binary encodings.variable to copy.

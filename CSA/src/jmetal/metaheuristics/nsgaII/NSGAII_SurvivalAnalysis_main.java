@@ -34,10 +34,17 @@ import jmetal.qualityIndicator.QualityIndicator;
 import jmetal.util.Configuration;
 import jmetal.util.JMException;
 
+import java.awt.FileDialog;
+import java.awt.Frame;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
+
+import org.rosuda.JRI.RMainLoopCallbacks;
+import org.rosuda.JRI.Rengine;
 
 import weka.core.Instances;
 import weka.core.converters.ConverterUtils.DataSource;
@@ -77,6 +84,8 @@ public class NSGAII_SurvivalAnalysis_main {
 		Operator  crossover ; // Crossover operator
 		Operator  mutation  ; // Mutation operator
 		Operator  selection ; // Selection operator
+		Boolean pValue; // decides whether pValue to be use or statistic score to be used
+		Boolean featureMaximization; //decides whether features to be maximized or minimized 
 
 		HashMap<String, Double>  parameters ; // Operator parameters
 
@@ -89,12 +98,14 @@ public class NSGAII_SurvivalAnalysis_main {
 
 		indicators = null ;
 
-		int numberOfBits = 40;
+		int numberOfBits = 25;
 
 		Instances data = null;
 
-		String dataFileName = "basalSamplesRef33_169.arff";
+		//String dataFileName = "basalSamplesRef33_169.arff";
+		String dataFileName = "basalSamplesRef33_MSTkNNDefault-MSTkNNk=1.arff"; //"basalSamplesRef33_ClinicalData.nbi.final_389_25.arff";
 		DataSource source;
+		System.out.println("Data file name: " + dataFileName);
 		try {
 			source = new DataSource(dataFileName);
 			data = source.getDataSet();
@@ -105,9 +116,31 @@ public class NSGAII_SurvivalAnalysis_main {
 			e.printStackTrace();
 		}
 
-		numberOfBits = data.numAttributes() - 1; // Number of attributes omitting Time attribute
+		numberOfBits = data.numAttributes() - 2; // Number of attributes omitting Time attribute and the censor attribute
 		
-		problem = new SurvivalAnalysis("Binary",numberOfBits,"basalSamplesRef33_169.arff");
+		
+		// Connect to R Engine
+		
+		if (!Rengine.versionCheck()) {
+		    System.err.println("** Version mismatch - Java files don't match library version.");
+		    System.exit(1);
+		}
+	    System.out.println("Creating Rengine (with arguments)");
+			// 1) we pass the arguments from the command line
+			// 2) we won't use the main loop at first, we'll start it later
+			//    (that's the "false" as second argument)
+			// 3) the callbacks are implemented by the TextConsole class above
+		Rengine re=new Rengine(args, false, new TextConsole());
+	    System.out.println("Rengine created, waiting for R");
+			// the engine creates R is a new thread, so we should wait until it's ready
+	    if (!re.waitForR()) {
+	            System.err.println("Cannot load R");
+	            return;
+	    }
+	    pValue = true;
+	    featureMaximization = true;
+	    
+		problem = new SurvivalAnalysis("Binary",numberOfBits,dataFileName, re, pValue, featureMaximization);
 
 		algorithm = new NSGAII(problem);
 		//algorithm = new ssNSGAII(problem);
@@ -165,3 +198,49 @@ public class NSGAII_SurvivalAnalysis_main {
 		*/// if
 	} //main
 } // NSGAII_main
+
+
+class TextConsole implements RMainLoopCallbacks
+{
+    public void rWriteConsole(Rengine re, String text, int oType) {
+        System.out.print(text);
+    }
+    
+    public void rBusy(Rengine re, int which) {
+        System.out.println("rBusy("+which+")");
+    }
+    
+    public String rReadConsole(Rengine re, String prompt, int addToHistory) {
+        System.out.print(prompt);
+        try {
+            BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
+            String s=br.readLine();
+            return (s==null||s.length()==0)?s:s+"\n";
+        } catch (Exception e) {
+            System.out.println("jriReadConsole exception: "+e.getMessage());
+        }
+        return null;
+    }
+    
+    public void rShowMessage(Rengine re, String message) {
+        System.out.println("rShowMessage \""+message+"\"");
+    }
+	
+    public String rChooseFile(Rengine re, int newFile) {
+	FileDialog fd = new FileDialog(new Frame(), (newFile==0)?"Select a file":"Select a new file", (newFile==0)?FileDialog.LOAD:FileDialog.SAVE);
+	fd.show();
+	String res=null;
+	if (fd.getDirectory()!=null) res=fd.getDirectory();
+	if (fd.getFile()!=null) res=(res==null)?fd.getFile():(res+fd.getFile());
+	return res;
+    }
+    
+    public void   rFlushConsole (Rengine re) {
+    }
+	
+    public void   rLoadHistory  (Rengine re, String filename) {
+    }			
+    
+    public void   rSaveHistory  (Rengine re, String filename) {
+    }			
+}
