@@ -103,7 +103,8 @@ public class NSGAII_SurvivalAnalysis_main {
 		Instances data = null;
 
 		//String dataFileName = "basalSamplesRef33_169.arff";
-		String dataFileName = "basalSamplesRef33_MSTkNNDefault-MSTkNNk=1.arff"; //"basalSamplesRef33_ClinicalData.nbi.final_389_25.arff";
+		//String dataFileName = "filteredDataMSTkNNk=2.arff"; //"basalSamplesRef33_ClinicalData.nbi.final_389_25.arff";
+		String dataFileName="BC1_MostVar.arff"; //"_BC3-ff.arff";
 		DataSource source;
 		System.out.println("Data file name: " + dataFileName);
 		try {
@@ -138,7 +139,7 @@ public class NSGAII_SurvivalAnalysis_main {
 	            return;
 	    }
 	    pValue = true;
-	    featureMaximization = true;
+	    featureMaximization = false;
 	    
 		problem = new SurvivalAnalysis("Binary",numberOfBits,dataFileName, re, pValue, featureMaximization);
 
@@ -146,8 +147,8 @@ public class NSGAII_SurvivalAnalysis_main {
 		//algorithm = new ssNSGAII(problem);
 
 		// Algorithm parameters
-		algorithm.setInputParameter("populationSize",100);
-		algorithm.setInputParameter("maxEvaluations",25000);
+		algorithm.setInputParameter("populationSize",100); //100
+		algorithm.setInputParameter("maxEvaluations",25000); //25000
 
 		// Mutation and Crossover for Real codification 
 		parameters = new HashMap<String, Double>() ;

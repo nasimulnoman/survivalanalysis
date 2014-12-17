@@ -21,10 +21,12 @@
 package jmetal.test.survivalanalysis ;
 
 import java.io.File;
+import java.util.Enumeration;
 
 import org.rosuda.JRI.Rengine;
 import org.rosuda.JRI.REXP;
 
+import weka.clusterers.ClusterEvaluation;
 import weka.clusterers.HierarchicalClusterer;
 import weka.core.Attribute;
 import weka.core.EuclideanDistance;
@@ -48,10 +50,13 @@ import jmetal.encodings.variable.Binary;
 public class GenerateSurvivalGraph extends Problem {
 
 	private String dataFileName;
+	private String testDataFileName;
 	private Attribute attTime;
 	private Attribute attCensor;
 	
 	public Rengine re;
+	
+	public int SolutionID = 1;
 	
 
 	/**
@@ -61,12 +66,13 @@ public class GenerateSurvivalGraph extends Problem {
 	 * @param dataFileName Name of the file containing data
 	 * @param rEng R Engine
 	 */
-	public GenerateSurvivalGraph(String solutionType, Integer numberOfBits, String dataFileName, Rengine rEng) {
+	public GenerateSurvivalGraph(String solutionType, Integer numberOfBits, String dataFileName, String testDataFile, Rengine rEng) {
 		numberOfVariables_  = 1;
 		numberOfObjectives_ = 2;
 		numberOfConstraints_= 0;
 		problemName_        = "SurvivalAnalysisGraph";
 		this.dataFileName = dataFileName;
+		this.testDataFileName = testDataFile;
 		this.re=rEng;
 		
 		solutionType_ = new BinarySolutionType(this) ;
@@ -102,7 +108,7 @@ public class GenerateSurvivalGraph extends Problem {
 
 		counterSelectedFeatures = 0 ;
 
-
+		System.out.println("\nSolution ID " + this.SolutionID);
 
 		try {
 			// read the data file 
@@ -130,6 +136,14 @@ public class GenerateSurvivalGraph extends Problem {
 			filter.setInputFormat(tmpData);
 			Instances dataClusterer = Filter.useFilter(tmpData, filter);
 
+			Enumeration<Attribute> attributeList = dataClusterer.enumerateAttributes();
+			System.out.println("Selected attributes: ");
+			while(attributeList.hasMoreElements()){
+				Attribute att = attributeList.nextElement();
+				System.out.print(att.name()+ ",");
+			}
+			
+			System.out.println();
 			// filtering complete
 
 
@@ -155,6 +169,28 @@ public class GenerateSurvivalGraph extends Problem {
 
 			clusterer.buildClusterer(dataClusterer);
 
+			// Cluster evaluation:
+			ClusterEvaluation eval = new ClusterEvaluation();
+			eval.setClusterer(clusterer);
+			
+			DataSource testSource = new DataSource(this.testDataFileName);
+			
+			Instances tmpTestData = testSource.getDataSet();
+			tmpTestData.setClassIndex(tmpTestData.numAttributes()-1);
+		    //testSource.
+			
+			// First filter the attributes based on chromosome
+			Instances testData = this.filterByChromosome(tmpTestData, solution);
+			//String[] options = new String[2];
+			 //options[0] = "-t";
+			 //options[1] = "/some/where/somefile.arff";
+			 //eval.
+			//System.out.println(eval.evaluateClusterer(testData, options));
+			eval.evaluateClusterer(testData);
+			System.out.println("\nCluster evluation for this solution: " + eval.clusterResultsToString());
+			
+		
+			// Print the cluster assignments:
 			
 			// save the cluster assignments
 			/*
@@ -173,7 +209,7 @@ public class GenerateSurvivalGraph extends Problem {
 			}true
 
 			//System.out.println("Class 1 cnt: " + classOneCnt + " Class 2 cnt: " + classTwoCnt);
-v
+
 
 			
 			// create arrays with time (event occurrence time) and censor data for use with jstat LogRankTest
@@ -198,7 +234,7 @@ v
 				}
 				//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
 			}
-v
+
 
 
 			//Instances[] classInstances = separateClassInstances(clusterAssignment, this.dataFileName,solution);
@@ -264,7 +300,8 @@ v
 
 			re.eval("timestrata.surv <- survfit( Surv(time, censor)~ strata(group), conf.type=\"log-log\")");
 			re.eval("timestrata.surv1 <- survfit( Surv(time, censor)~ 1, conf.type=\"none\")");
-			re.eval("jpeg('SurvivalPlot.jpg')");
+			String evalStr = "jpeg('SurvivalPlot-"+this.SolutionID+".jpg')";
+			re.eval(evalStr);
 			re.eval("plot(timestrata.surv, col=c(2,3), xlab=\"Time\", ylab=\"Survival Probability\")");
 			re.eval("par(new=T)");
 			re.eval("plot(timestrata.surv1,col=1)");
