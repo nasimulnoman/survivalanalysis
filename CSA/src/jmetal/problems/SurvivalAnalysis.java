@@ -57,6 +57,8 @@ public class SurvivalAnalysis extends Problem {
 	private Boolean pValueFlag; // Flag to determine which score to be used true: pvalue and false: statisticscore
 	private Boolean featureMax; // Flag to determine feature to be minimized or maximized: true: maximized, false: minimized
 	
+	private String HC_LinkType;
+	
 	/**
 	 * Creates a new SurvivalAnalysis problem instance
 	 * @param solutionType Solution type
@@ -74,11 +76,11 @@ public class SurvivalAnalysis extends Problem {
 	 * @param solutionType Solution type
 	 * @param numberOfBits Length of the problem
 	 */
-	public SurvivalAnalysis(String solutionType, Integer numberOfBits, String dataFileName, Rengine rEng, Boolean pVal, Boolean fMax) {
+	public SurvivalAnalysis(String solutionType, Integer numberOfBits, String dataFileName, Rengine rEng, Boolean pVal, Boolean fMax, String linkType) {
 		numberOfVariables_  = 1;
 		numberOfObjectives_ = 2;
 		numberOfConstraints_= 0;
-		problemName_        = "SurvivalAnalysis";
+		problemName_        = "SurvivalAnalysis: " + dataFileName;
 		this.dataFileName = dataFileName;
 		this.re=rEng;
 		this.pValueFlag = pVal;
@@ -88,7 +90,8 @@ public class SurvivalAnalysis extends Problem {
 
 		length_       = new int[numberOfVariables_];
 		length_      [0] = numberOfBits ;
-
+		this.HC_LinkType = linkType;
+		
 		if (solutionType.compareTo("Binary") == 0)
 			solutionType_ = new BinarySolutionType(this) ;
 		else {
@@ -176,7 +179,10 @@ public class SurvivalAnalysis extends Problem {
 			// train hierarchical clusterer
 
 			HierarchicalClusterer clusterer = new HierarchicalClusterer();
-			clusterer.setOptions(new String[] {"-L", "COMPLETE"});  // complete linkage clustering
+			clusterer.setOptions(new String[] {"-L", this.HC_LinkType});  // complete linkage clustering
+			//Link type (Single, Complete, Average, Mean, Centroid, Ward, Adjusted complete, Neighbor Joining)
+			//[SINGLE|COMPLETE|AVERAGE|MEAN|CENTROID|WARD|ADJCOMPLETE|NEIGHBOR_JOINING]
+			
 			clusterer.setDebug(true);
 			clusterer.setNumClusters(2);
 			clusterer.setDistanceFunction(new EuclideanDistance());
@@ -266,6 +272,12 @@ v
 			this.re.eval(strC);
 			this.re.eval(strG);
 
+			//debug
+			//System.out.println(strT);
+			//System.out.println(strC);
+			//System.out.println(strG);
+			//end debug
+			
 
 			/** If you are calling surv_test from coin library */
 			/*v
@@ -289,8 +301,9 @@ v
 			x = re.eval("pchisq(res2$chisq, df=1, lower.tail = FALSE)");
 			//x = re.eval("1.0 - pchisq(res2$chisq, df=1)");
 			pValue = x.asDouble();
-			//System.out.println("StatScore: " + statScore + "pValue: " + pValue);
-
+			//debug:
+			//System.out.println("StatScore: " + testStatistic + "pValue: " + pValue);
+            //end debug
 	
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -435,5 +448,9 @@ v
 		return (dataClusterer);
 	}
 
+	
+	public String getDataFileName(){
+		return this.dataFileName;
+	}
 
 } // SurvivalAnalysis

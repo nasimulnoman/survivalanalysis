@@ -91,9 +91,15 @@ public class NSGAII_SurvivalAnalysis_main {
 
 		QualityIndicator indicators ; // Object to get quality indicators
 
+		//String dataFileName = "basalSamplesRef33_169.arff";
+		//String dataFileName = "filteredDataMSTkNNk=2.arff"; //"basalSamplesRef33_ClinicalData.nbi.final_389_25.arff";
+		String dataFileName= "GBM-1740x196-Min-CMP.arff";//"GBM-1740x194-Max-L1S3-G2.arff";//"GBM-1740x196.arff";//"1740X38-Soln10-Soln05-Soln02-Soln17-G10.arff";//"1750X66-Soln10-Soln05-Soln10-G7.arff";//"1750X55-Soln10-Soln05-Soln10-G8.arff";//"1740X46-Sol10-Sol05-Sol02-G6.arff";//"1740X27-Soln10-G1.arff"; //"1740X48-Soln10-Soln05-G4.arff"; //"1740X48-Soln10-Soln05-G3.arff"; //"1740x168.NA.filtered.Soln09.G2.arff"; //"1740x196.NA.filtered.G2.arff";//"GBM-1740x196.arff"; //"GBM-Proneural-210x52.arff";//"GBM-Proneural1740x56.arff";//"_BC1000MostVar.arff";//"_BC500mostVar.arff"; //"BC1_MostVar.arff"; //"_BC3-ff.arff";
+		DataSource source;
+
+		
 		// Logger object and file to store log messages
 		logger_      = Configuration.logger_ ;
-		fileHandler_ = new FileHandler("NSGAII_SurvivalAnalysis_main.log"); 
+		fileHandler_ = new FileHandler("NSGAII_SurvivalAnalysis_main"+dataFileName+".log"); 
 		logger_.addHandler(fileHandler_) ;
 
 		indicators = null ;
@@ -102,10 +108,6 @@ public class NSGAII_SurvivalAnalysis_main {
 
 		Instances data = null;
 
-		//String dataFileName = "basalSamplesRef33_169.arff";
-		//String dataFileName = "filteredDataMSTkNNk=2.arff"; //"basalSamplesRef33_ClinicalData.nbi.final_389_25.arff";
-		String dataFileName="BC1_MostVar.arff"; //"_BC3-ff.arff";
-		DataSource source;
 		System.out.println("Data file name: " + dataFileName);
 		try {
 			source = new DataSource(dataFileName);
@@ -140,15 +142,19 @@ public class NSGAII_SurvivalAnalysis_main {
 	    }
 	    pValue = true;
 	    featureMaximization = false;
+	    String linkType = "COMPLETE"; 
 	    
-		problem = new SurvivalAnalysis("Binary",numberOfBits,dataFileName, re, pValue, featureMaximization);
-
+	    
+	    // Hieararchical Clustering Link type (Single, Complete, Average, Mean, Centroid, Ward, Adjusted complete, Neighbor Joining)
+	  //[SINGLE|COMPLETE|AVERAGE|MEAN|CENTROID|WARD|ADJCOMPLETE|NEIGHBOR_JOINING]
+	    problem = new SurvivalAnalysis("Binary",numberOfBits,dataFileName, re, pValue, featureMaximization, linkType);
+		System.out.println ("Hierarchical Clustering LInktype: " + linkType);
 		algorithm = new NSGAII(problem);
 		//algorithm = new ssNSGAII(problem);
 
 		// Algorithm parameters
-		algorithm.setInputParameter("populationSize",100); //100
-		algorithm.setInputParameter("maxEvaluations",25000); //25000
+		algorithm.setInputParameter("populationSize",200); //100
+		algorithm.setInputParameter("maxEvaluations",200000); //25000
 
 		// Mutation and Crossover for Real codification 
 		parameters = new HashMap<String, Double>() ;
@@ -180,10 +186,10 @@ public class NSGAII_SurvivalAnalysis_main {
 
 		// Result messages 
 		logger_.info("Total execution time: "+estimatedTime + "ms");
-		logger_.info("Variables values have been writen to file VAR");
-		population.printVariablesToFile("VAR");    
-		logger_.info("Objectives values have been writen to file FUN");
-		population.printObjectivesToFile("FUN");
+		logger_.info("Variables values have been writen to file VAR"+dataFileName);
+		population.printVariablesToFile("VAR-"+dataFileName);    
+		logger_.info("Objectives values have been writen to file FUN"+dataFileName);
+		population.printObjectivesToFile("FUN-"+dataFileName);
 		/*
 		if (indicators != null) {
   			logger_.info("Quality indicators") ;

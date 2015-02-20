@@ -83,6 +83,12 @@ public abstract class Problem implements Serializable {
   protected int    [] length_  ;
   
   /**
+   * The probability of setting a bit to 1 in the initial solution in Binary encoding  
+   */
+  
+  public double probability=0.5;  // defalut value is 50% 
+  
+  /**
    * Stores the type of each encodings.variable
    */
   //public Class [] variableType_;

@@ -32,6 +32,7 @@ import jmetal.encodings.variable.Binary;
  */
 public class BinarySolutionType extends SolutionType {
 
+	private double Prob = 0.5;  // the probability with which a bit in the solution is set. Defalut is 0.5
 	/**
 	 * Constructor
 	 * @param problem Problem to solve
@@ -40,6 +41,13 @@ public class BinarySolutionType extends SolutionType {
 		super(problem) ;
 	} // Constructor
 	
+
+	public BinarySolutionType(Problem problem, double prob) {
+		super(problem) ;
+		this.Prob = prob;
+	} // Constructor
+
+	
 	/**
 	 * Creates the variables of the solution
 	 */
@@ -47,7 +55,7 @@ public class BinarySolutionType extends SolutionType {
 		Variable[]  variables = new Variable[problem_.getNumberOfVariables()];
 		
     for (int var = 0; var < problem_.getNumberOfVariables(); var++)
-    	variables[var] = new Binary(problem_.getLength(var)); 
+    	variables[var] = new Binary(problem_.getLength(var), this.problem_.probability); 
     
     return variables ;
 	} // createVariables

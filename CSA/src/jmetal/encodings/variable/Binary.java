@@ -67,6 +67,25 @@ public class Binary extends Variable {
     }
   } //Binary
   
+  /**
+   * Constructor: Nasimul
+   * @param numberOfBits
+   * @param prob: sets the bit based on prob
+   */
+  public Binary(int numberOfBits, double prob){   
+	    numberOfBits_ = numberOfBits;
+
+	    bits_ = new BitSet(numberOfBits_);      
+	    for (int i = 0; i < numberOfBits_; i++){
+	      if (PseudoRandom.randDouble() < prob) {
+	        bits_.set(i,true);
+	      } else {
+	        bits_.set(i,false);                      
+	      }
+	    }
+	  } //Binary
+  
+  
   /*
   public Binary(String str){
 	  numberOfBits_=str.length();

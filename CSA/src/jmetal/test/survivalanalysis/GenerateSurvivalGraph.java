@@ -30,6 +30,7 @@ import weka.clusterers.ClusterEvaluation;
 import weka.clusterers.HierarchicalClusterer;
 import weka.core.Attribute;
 import weka.core.EuclideanDistance;
+import weka.core.ChebyshevDistance;
 import weka.core.Instances;
 import weka.core.converters.ArffSaver;
 import weka.core.converters.ConverterUtils.DataSource;
@@ -53,7 +54,7 @@ public class GenerateSurvivalGraph extends Problem {
 	private String testDataFileName;
 	private Attribute attTime;
 	private Attribute attCensor;
-	
+	private Boolean printClusterAssignment=true;
 	public Rengine re;
 	
 	public int SolutionID = 1;
@@ -161,10 +162,11 @@ public class GenerateSurvivalGraph extends Problem {
 			// train hierarchical clusterer
 
 			HierarchicalClusterer clusterer = new HierarchicalClusterer();
-			clusterer.setOptions(new String[] {"-L", "COMPLETE"});  // complete linkage clustering
+			clusterer.setOptions(new String[] {"-L", "ADJCOMPLETE"});  // complete linkage clustering
 			clusterer.setDebug(true);
 			clusterer.setNumClusters(2);
 			clusterer.setDistanceFunction(new EuclideanDistance());
+			//clusterer.setDistanceFunction(new ChebyshevDistance());
 			clusterer.setDistanceIsBranchLength(true);
 
 			clusterer.buildClusterer(dataClusterer);
@@ -172,6 +174,8 @@ public class GenerateSurvivalGraph extends Problem {
 			// Cluster evaluation:
 			ClusterEvaluation eval = new ClusterEvaluation();
 			eval.setClusterer(clusterer);
+			
+			if (this.testDataFileName != null){
 			
 			DataSource testSource = new DataSource(this.testDataFileName);
 			
@@ -188,12 +192,12 @@ public class GenerateSurvivalGraph extends Problem {
 			//System.out.println(eval.evaluateClusterer(testData, options));
 			eval.evaluateClusterer(testData);
 			System.out.println("\nCluster evluation for this solution: " + eval.clusterResultsToString());
-			
+			}
 		
 			// Print the cluster assignments:
 			
 			// save the cluster assignments
-			/*
+			if (printClusterAssignment==true){
 			int[] clusterAssignment = new int[dataClusterer.numInstances()];
 			int classOneCnt = 0;
 			int classTwoCnt = 0;
@@ -205,11 +209,13 @@ public class GenerateSurvivalGraph extends Problem {
 				else if (clusterAssignment[i]==1){
 					++classTwoCnt;
 				}
-				//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
-			}true
+				System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+			}
 
-			//System.out.println("Class 1 cnt: " + classOneCnt + " Class 2 cnt: " + classTwoCnt);
+				System.out.println("Class 1 cnt: " + classOneCnt + " Class 2 cnt: " + classTwoCnt);
+			}
 
+/*
 
 			
 			// create arrays with time (event occurrence time) and censor data for use with jstat LogRankTest
@@ -252,9 +258,9 @@ public class GenerateSurvivalGraph extends Problem {
 			pValue = testclass1.pValue;true
 */
 
-			String strT = "time <- c(";
-			String strC = "censor <- c(";
-			String strG = "group <- c(";
+			String strT = "time1 <- c(";
+			String strC = "censor1 <- c(";
+			String strG = "group1 <- c(";
 
 			
 			for (int i=0; i<dataClusterer.numInstances()-1; ++i){
@@ -289,22 +295,22 @@ public class GenerateSurvivalGraph extends Problem {
 			
 			/** If you are calling survdiff from survival library (much faster) */
 			re.eval("library(survival)");
-			re.eval("res2 <- survdiff(Surv(time,censor)~group,rho=0)");
-			x=re.eval("res2$chisq");
+			re.eval("res21 <- survdiff(Surv(time1,censor1)~group1,rho=0)");
+			x=re.eval("res21$chisq");
 			testStatistic=x.asDouble();
 			//System.out.println(x);
-			x = re.eval("pchisq(res2$chisq, df=1, lower.tail = FALSE)");
+			x = re.eval("pchisq(res21$chisq, df=1, lower.tail = FALSE)");
 			//x = re.eval("1.0 - pchisq(res2$chisq, df=1)");
 			pValue = x.asDouble();
-			//System.out.println("StatScore: " + statScore + "pValue: " + pValue);
+			System.out.println("StatScore: " + testStatistic + "  pValue: " + pValue);
 
-			re.eval("timestrata.surv <- survfit( Surv(time, censor)~ strata(group), conf.type=\"log-log\")");
-			re.eval("timestrata.surv1 <- survfit( Surv(time, censor)~ 1, conf.type=\"none\")");
+			re.eval("timestrata1.surv <- survfit( Surv(time1, censor1)~ strata(group1), conf.type=\"log-log\")");
+			re.eval("timestrata1.surv1 <- survfit( Surv(time1, censor1)~ 1, conf.type=\"none\")");
 			String evalStr = "jpeg('SurvivalPlot-"+this.SolutionID+".jpg')";
 			re.eval(evalStr);
-			re.eval("plot(timestrata.surv, col=c(2,3), xlab=\"Time\", ylab=\"Survival Probability\")");
+			re.eval("plot(timestrata1.surv, col=c(2,3), xlab=\"Time\", ylab=\"Survival Probability\")");
 			re.eval("par(new=T)");
-			re.eval("plot(timestrata.surv1,col=1)");
+			re.eval("plot(timestrata1.surv1,col=1)");
 			re.eval("legend(0.2, c(\"Group1\",\"Group2\",\"Whole\"))");
 			re.eval("dev.off()");
 			
@@ -426,5 +432,9 @@ public class GenerateSurvivalGraph extends Problem {
 		return (dataClusterer);
 	}
 
+	
+	public String getDataFileName(){
+		return this.dataFileName;
+	}
 
 } // GenerateSurvivalCurveData
