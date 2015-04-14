@@ -13,5 +13,6 @@
 	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/JRI.jar"/>
 	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/JRIEngine.jar"/>
 	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/REngine.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/TestWeka"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

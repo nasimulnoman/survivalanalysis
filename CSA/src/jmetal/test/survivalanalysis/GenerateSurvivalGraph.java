@@ -23,6 +23,8 @@ package jmetal.test.survivalanalysis ;
 import java.io.File;
 import java.util.Enumeration;
 
+import mySurvAnalysis.*;
+
 import org.rosuda.JRI.Rengine;
 import org.rosuda.JRI.REXP;
 
@@ -197,7 +199,7 @@ public class GenerateSurvivalGraph extends Problem {
 			// Print the cluster assignments:
 			
 			// save the cluster assignments
-			if (printClusterAssignment==true){
+			//if (printClusterAssignment==true){
 			int[] clusterAssignment = new int[dataClusterer.numInstances()];
 			int classOneCnt = 0;
 			int classTwoCnt = 0;
@@ -209,11 +211,11 @@ public class GenerateSurvivalGraph extends Problem {
 				else if (clusterAssignment[i]==1){
 					++classTwoCnt;
 				}
-				System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+				//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
 			}
 
 				System.out.println("Class 1 cnt: " + classOneCnt + " Class 2 cnt: " + classTwoCnt);
-			}
+			//}
 
 /*
 
@@ -257,7 +259,7 @@ public class GenerateSurvivalGraph extends Problem {
 			testStatistic = testclass1.testStatistic;
 			pValue = testclass1.pValue;true
 */
-
+			
 			String strT = "time1 <- c(";
 			String strC = "censor1 <- c(";
 			String strG = "group1 <- c(";
@@ -267,6 +269,7 @@ public class GenerateSurvivalGraph extends Problem {
 				strT = strT + (int) data.get(i).value(attTime) + ",";
 				strG = strG + clusterer.clusterInstance(dataClusterer.get(i)) + ",";
 				strC = strC + (int) data.get(i).value(attCensor) + ",";
+				
 			}
 
 			int tmpi = dataClusterer.numInstances() -1;
@@ -279,7 +282,39 @@ public class GenerateSurvivalGraph extends Problem {
 			this.re.eval(strC);
 			this.re.eval(strG);
 
+			
+			// for MyLogRankTest
 
+			double [] time1 = new double[classOneCnt];
+			double [] time2 = new double[classTwoCnt];
+			double [] censor1= new double[classOneCnt];
+			double [] censor2= new double[classTwoCnt];
+			
+			int i1 = 0, i2=0;
+			
+			
+			for (int i=0; i<dataClusterer.numInstances(); ++i){
+				
+				strT = strT + (int) data.get(i).value(attTime) + ",";
+				strG = strG + clusterer.clusterInstance(dataClusterer.get(i)) + ",";
+				strC = strC + (int) data.get(i).value(attCensor) + ",";
+			
+				if (clusterer.clusterInstance(dataClusterer.get(i))==0){
+					time1[i1] = data.get(i).value(attTime); 
+					censor1[i1] = data.get(i).value(attCensor);
+					++i1;
+				}
+				else {
+					time2[i2] = data.get(i).value(attTime);
+					censor2[i2] = data.get(i).value(attCensor);
+					++i2;
+				}
+				
+			}
+
+			
+			
+			
 			/** If you are calling surv_test from coin library */
 			/*v
 			re.eval("library(coin)");
@@ -302,6 +337,7 @@ public class GenerateSurvivalGraph extends Problem {
 			x = re.eval("pchisq(res21$chisq, df=1, lower.tail = FALSE)");
 			//x = re.eval("1.0 - pchisq(res2$chisq, df=1)");
 			pValue = x.asDouble();
+			System.out.println("Results from R:");
 			System.out.println("StatScore: " + testStatistic + "  pValue: " + pValue);
 
 			re.eval("timestrata1.surv <- survfit( Surv(time1, censor1)~ strata(group1), conf.type=\"log-log\")");
@@ -313,6 +349,12 @@ public class GenerateSurvivalGraph extends Problem {
 			re.eval("plot(timestrata1.surv1,col=1)");
 			re.eval("legend(0.2, c(\"Group1\",\"Group2\",\"Whole\"))");
 			re.eval("dev.off()");
+			
+			
+			System.out.println("Results from my code: ");
+			LogRankTest lrt = new LogRankTest (time1, time2, censor1, censor2);
+			double[] results = lrt.logRank();
+			System.out.println("Statistics: " + results[0] + " variance: " + results[1] + " pValue: " + results[2]);
 			
 	
 		} catch (Exception e) {
