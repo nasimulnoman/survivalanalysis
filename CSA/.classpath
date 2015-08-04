@@ -6,7 +6,6 @@
 			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/weka.jar"/>
 	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/jmetal4.5.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
 	<classpathentry kind="lib" path="/home/nasimul/workspace/TestWeka/javastatsoft_beta1.3.jar"/>
@@ -14,5 +13,12 @@
 	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/JRIEngine.jar"/>
 	<classpathentry kind="lib" path="/home/nasimul/R/x86_64-pc-linux-gnu-library/3.0/rJava/jri/REngine.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/TestWeka"/>
+	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/colt-1.2.0.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/guava-18.0.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/java-cup-0.11a.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/java-cup.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/JFlex.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/junit.jar"/>
+	<classpathentry kind="lib" path="/home/nasimul/git/localCSA/CSA/packageManager.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

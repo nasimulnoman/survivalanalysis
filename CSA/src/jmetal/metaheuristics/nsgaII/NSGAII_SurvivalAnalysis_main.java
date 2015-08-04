@@ -147,14 +147,16 @@ public class NSGAII_SurvivalAnalysis_main {
 	    
 	    // Hieararchical Clustering Link type (Single, Complete, Average, Mean, Centroid, Ward, Adjusted complete, Neighbor Joining)
 	  //[SINGLE|COMPLETE|AVERAGE|MEAN|CENTROID|WARD|ADJCOMPLETE|NEIGHBOR_JOINING]
-	    problem = new SurvivalAnalysis("Binary",numberOfBits,dataFileName, re, pValue, featureMaximization, linkType);
+	    
+	    int noOfObj = 2;
+	    problem = new SurvivalAnalysis("Binary",numberOfBits,noOfObj, dataFileName, re, pValue, featureMaximization, linkType);
 		System.out.println ("Hierarchical Clustering LInktype: " + linkType);
 		algorithm = new NSGAII(problem);
 		//algorithm = new ssNSGAII(problem);
 
 		// Algorithm parameters
 		algorithm.setInputParameter("populationSize",200); //100
-		algorithm.setInputParameter("maxEvaluations",200000); //25000
+		algorithm.setInputParameter("maxEvaluations",200); //25000
 
 		// Mutation and Crossover for Real codification 
 		parameters = new HashMap<String, Double>() ;

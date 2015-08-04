@@ -37,9 +37,10 @@ import jmetal.core.Problem;
 import jmetal.core.Solution;
 import jmetal.encodings.solutionType.BinarySolutionType;
 import jmetal.encodings.variable.Binary;
-import javastat.survival.inference.LogRankTest;
-import javastat.survival.inference.WilcoxonTest;
-import javastat.StatisticalAnalysis;
+//import javastat.survival.inference.LogRankTest;
+//import javastat.survival.inference.WilcoxonTest;
+//import javastat.StatisticalAnalysis;
+import survivalanalysis.*;
 
 /**
  * Class representing problem SurvivalAnalysis. The problem consist of feature selection
@@ -76,21 +77,22 @@ public class SurvivalAnalysis extends Problem {
 	 * @param solutionType Solution type
 	 * @param numberOfBits Length of the problem
 	 */
-	public SurvivalAnalysis(String solutionType, Integer numberOfBits, String dataFileName, Rengine rEng, Boolean pVal, Boolean fMax, String linkType) {
+	public SurvivalAnalysis(String solutionType, Integer numberOfBits, Integer numberOfObjectives, String dataFileName, Rengine rEng, Boolean pVal, Boolean fMax, String linkType) {
 		numberOfVariables_  = 1;
-		numberOfObjectives_ = 2;
+		numberOfObjectives_ = numberOfObjectives;
 		numberOfConstraints_= 0;
 		problemName_        = "SurvivalAnalysis: " + dataFileName;
 		this.dataFileName = dataFileName;
 		this.re=rEng;
 		this.pValueFlag = pVal;
 		this.featureMax = fMax;
+		this.HC_LinkType = linkType;
 		
 		solutionType_ = new BinarySolutionType(this) ;
 
 		length_       = new int[numberOfVariables_];
 		length_      [0] = numberOfBits ;
-		this.HC_LinkType = linkType;
+
 		
 		if (solutionType.compareTo("Binary") == 0)
 			solutionType_ = new BinarySolutionType(this) ;
@@ -106,10 +108,16 @@ public class SurvivalAnalysis extends Problem {
 			System.out.print("Survival Analysis.Obj 1: statScore maximization. "); 
 		}
 		if (this.featureMax){
-			System.out.println("Obj 2: feature maximization.");
+			System.out.print("Obj 2: feature maximization.");
 		}
 		else{
-			System.out.println("Obj 2: feature minimization.");
+			System.out.print("Obj 2: feature minimization.");
+		}
+		if (this.numberOfObjectives_==3){
+			System.out.println("Obj 3: Arithetic Hermonic Cut Maximization");
+		}
+		else{
+			System.out.println();
 		}
 
 	} // SurvivalAnalysis
@@ -126,6 +134,7 @@ public class SurvivalAnalysis extends Problem {
 
 		double testStatistic = Double.MAX_VALUE;
 		double pValue= Double.MAX_VALUE;
+		double ArithmeticHarmonicCutScore = Double.MAX_VALUE;
 		//double statScore;
 		REXP x;
 
@@ -166,13 +175,16 @@ public class SurvivalAnalysis extends Problem {
 
 
 
-			// Debug: write the filtered dataset
 			/*
-	 ArffSaver saver = new ArffSaver();
-	 saver.setInstances(dataClusterer);
-	 saver.setFile(new File("filteered-data.arff"));
-	 saver.writeBatch();
-			 */
+			// debug: write the filtered dataset
+
+	 		ArffSaver saver = new ArffSaver();
+	 		saver.setInstances(dataClusterer);
+	 		saver.setFile(new File("filteered-data.arff"));
+	 		saver.writeBatch();
+			// end debug
+			
+			*/
 
 
 
@@ -183,127 +195,135 @@ public class SurvivalAnalysis extends Problem {
 			//Link type (Single, Complete, Average, Mean, Centroid, Ward, Adjusted complete, Neighbor Joining)
 			//[SINGLE|COMPLETE|AVERAGE|MEAN|CENTROID|WARD|ADJCOMPLETE|NEIGHBOR_JOINING]
 			
-			clusterer.setDebug(true);
+			//clusterer.setDebug(true);
 			clusterer.setNumClusters(2);
 			clusterer.setDistanceFunction(new EuclideanDistance());
-			clusterer.setDistanceIsBranchLength(true);
+			clusterer.setDistanceIsBranchLength(false);  // ?? Should it be changed to false? (Noman)
 
 			clusterer.buildClusterer(dataClusterer);
 
-			
+			double[][] distanceMatrix = clusterer.getDistanceMatrix();
 			// save the cluster assignments
-			/*
-			int[] clusterAssignment = new int[dataClusterer.numInstances()];
-			int classOneCnt = 0;
-			int classTwoCnt = 0;
-			for (int i=0; i<dataClusterer.numInstances(); ++i){
-				clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
-				if (clusterAssignment[i]==0){
-					++classOneCnt;
-				}
-				else if (clusterAssignment[i]==1){
-					++classTwoCnt;
-				}
-				//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
-			}true
-
-			//System.out.println("Class 1 cnt: " + classOneCnt + " Class 2 cnt: " + classTwoCnt);
-v
-
 			
-			// create arrays with time (event occurrence time) and censor data for use with jstat LogRankTest
-			double[] time1 = new double[classOneCnt];	
-			double[] censor1 = new double[classOneCnt];
-			double[] time2 = new double[classTwoCnt];
-			double[] censor2 = new double[classTwoCnt];
+			if (this.re==null){ // we are not calling R functions. Therefore parallelization possible
+
+				int[] clusterAssignment = new int[dataClusterer.numInstances()];
+				int classOneCnt = 0;
+				int classTwoCnt = 0;
+				for (int i=0; i<dataClusterer.numInstances(); ++i){
+					clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
+					if (clusterAssignment[i]==0){
+						++classOneCnt;
+					}
+					else if (clusterAssignment[i]==1){
+						++classTwoCnt;
+					}
+					//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+				}
+
+				//System.out.println("Class 1 cnt: " + classOneCnt + " Class 2 cnt: " + classTwoCnt);
 
 
-			//data = source.getDataSet();
-			for (int i=0, cnt1=0, cnt2=0; i<dataClusterer.numInstances(); ++i){
-				clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
-				if (clusterAssignment[i]==0){
-					time1[cnt1] = data.get(i).value(attTime);
-					censor1[cnt1++] = 1;
-					//System.out.println("i: " + i + " T: " + time1[cnt1-1]);
+				// create arrays with time (event occurrence time) and censor data for use with jstat LogRankTest
+				double[] time1 = new double[classOneCnt];	
+				double[] censor1 = new double[classOneCnt];
+				double[] time2 = new double[classTwoCnt];
+				double[] censor2 = new double[classTwoCnt];
+
+
+				//data = source.getDataSet();
+				for (int i=0, cnt1=0, cnt2=0; i<dataClusterer.numInstances(); ++i){
+					//clusterAssignment[i] = clusterer.clusterInstance(dataClusterer.get(i));
+					if (clusterAssignment[i]==0){
+						time1[cnt1] = data.get(i).value(attTime);
+						censor1[cnt1++] = data.get(i).value(attCensor);
+						//System.out.println("i: " + i + " T: " + time1[cnt1-1]);
+					}
+					else if (clusterAssignment[i]==1){
+						time2[cnt2] = data.get(i).value(attTime);
+						//System.out.println("i: " + i + " T: " + time2[cnt2-1]);
+						censor2[cnt2++] = data.get(i).value(attCensor);;
+					}
+					//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
 				}
-				else if (clusterAssignment[i]==1){
-					time2[cnt2] = data.get(i).value(attTime);
-					//System.out.println("i: " + i + " T: " + time2[cnt2-1]);
-					censor2[cnt2++] = 1;
-				}
-				//System.out.println("Instance " + i + ": " + clusterAssignment[i]);
+
+
+				//Instances[] classInstances = separateClassInstances(clusterAssignment, this.dataFileName,solution);
+				//System.out.println("Class instances seperated");
+
+				// calculate log rank test and p values
+
+				LogRankTest testclass1 = new LogRankTest(time1, time2, censor1, censor2);
+				double [] scores = testclass1.logRank();
+				testStatistic = scores[0];
+				pValue = scores[2];
+				
+				
+				ArithmeticHarmonicCutScore = this.getArithmeticHarmonicCutScore(distanceMatrix, clusterAssignment);
+				//debug:
+				//System.out.println("Calculation by myLibrary: testStatistic: " + scores[0] + " pValue: " + scores[2]);
+				//end debug
+				//WilcoxonTest testclass1 = new WilcoxonTest(time1, censor1, time2, censor2);
+				//testStatistic = testclass1.testStatistic;
+				//pValue = testclass1.pValue;true
 			}
-v
+			else{ // We are calling R for Log Rank test, Parallelization not possible
+
+				String strT = "time <- c(";
+				String strC = "censor <- c(";
+				String strG = "group <- c(";
 
 
-			//Instances[] classInstances = separateClassInstances(clusterAssignment, this.dataFileName,solution);
-			//System.out.println("Class instances seperated");
+				for (int i=0; i<dataClusterer.numInstances()-1; ++i){
+					strT = strT + (int) data.get(i).value(attTime) + ",";
+					strG = strG + clusterer.clusterInstance(dataClusterer.get(i)) + ",";
+					strC = strC + (int) data.get(i).value(attCensor) + ",";
+				}
 
-			// calculate log rank test and p values
-			
-			//LogRankTest testclass1 = new LogRankTest(time1, censor1, time2, censor2);
-			//testStatistic = testclass1.testStatistic;
-			//pValue = testclass1.pValue;
+				int tmpi = dataClusterer.numInstances() -1;
+				strT = strT + (int) data.get(tmpi).value(attTime) + ")";
+				strG = strG + clusterer.clusterInstance(dataClusterer.get(tmpi)) + ")";
+				strC = strC + (int) data.get(tmpi).value(attCensor)+")";
 
 
-			WilcoxonTest testclass1 = new WilcoxonTest(time1, censor1, time2, censor2);
-			testStatistic = testclass1.testStatistic;
-			pValue = testclass1.pValue;true
-*/
+				this.re.eval(strT);
+				this.re.eval(strC);
+				this.re.eval(strG);
 
-			String strT = "time <- c(";
-			String strC = "censor <- c(";
-			String strG = "group <- c(";
+				//debug
+				//System.out.println(strT);
+				//System.out.println(strC);
+				//System.out.println(strG);
+				//end debug
 
-			
-			for (int i=0; i<dataClusterer.numInstances()-1; ++i){
-				strT = strT + (int) data.get(i).value(attTime) + ",";
-				strG = strG + clusterer.clusterInstance(dataClusterer.get(i)) + ",";
-				strC = strC + (int) data.get(i).value(attCensor) + ",";
+
+				/** If you are calling surv_test from coin library */
+				/*v
+				re.eval("library(coin)");
+				re.eval("grp <- factor (group)");
+				re.eval("result <- surv_test(Surv(time,censor)~grp,distribution=\"exact\")");
+
+				x=re.eval("statistic(result)");
+				testStatistic = x.asDouble();
+				//x=re.eval("pvalue(result)");
+				//pValue = x.asDouble();
+				//System.out.println("StatScore: " + statScore + "pValue: " + pValue);
+				 */
+
+				/** If you are calling survdiff from survival library (much faster) */
+				re.eval("library(survival)");
+				re.eval("res2 <- survdiff(Surv(time,censor)~group,rho=0)");
+				x=re.eval("res2$chisq");
+				testStatistic=x.asDouble();
+				//System.out.println(x);
+				x = re.eval("pchisq(res2$chisq, df=1, lower.tail = FALSE)");
+				//x = re.eval("1.0 - pchisq(res2$chisq, df=1)");
+				pValue = x.asDouble();
+				//debug:
+				//System.out.println("Calculation by R: StatScore: " + testStatistic + "pValue: " + pValue);
+				//end debug
+
 			}
-
-			int tmpi = dataClusterer.numInstances() -1;
-			strT = strT + (int) data.get(tmpi).value(attTime) + ")";
-			strG = strG + clusterer.clusterInstance(dataClusterer.get(tmpi)) + ")";
-			strC = strC + (int) data.get(tmpi).value(attCensor)+")";
-			
-			
-			this.re.eval(strT);
-			this.re.eval(strC);
-			this.re.eval(strG);
-
-			//debug
-			//System.out.println(strT);
-			//System.out.println(strC);
-			//System.out.println(strG);
-			//end debug
-			
-
-			/** If you are calling surv_test from coin library */
-			/*v
-			re.eval("library(coin)");
-			re.eval("grp <- factor (group)");
-			re.eval("result <- surv_test(Surv(time,censor)~grp,distribution=\"exact\")");
-
-			x=re.eval("statistic(result)");
-			testStatistic = x.asDouble();
-			//x=re.eval("pvalue(result)");
-			//pValue = x.asDouble();
-			//System.out.println("StatScore: " + statScore + "pValue: " + pValue);
-			*/
-			
-			/** If you are calling survdiff from survival library (much faster) */
-			re.eval("library(survival)");
-			re.eval("res2 <- survdiff(Surv(time,censor)~group,rho=0)");
-			x=re.eval("res2$chisq");
-			testStatistic=x.asDouble();
-			//System.out.println(x);
-			x = re.eval("pchisq(res2$chisq, df=1, lower.tail = FALSE)");
-			//x = re.eval("1.0 - pchisq(res2$chisq, df=1)");
-			pValue = x.asDouble();
-			//debug:
-			//System.out.println("StatScore: " + testStatistic + "pValue: " + pValue);
-            //end debug
 	
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -345,6 +365,9 @@ v
 		}
 		else{
 			solution.setObjective(1, counterSelectedFeatures);        // feature minimized
+		}
+		if (this.numberOfObjectives_ == 3){
+			solution.setObjective(2, -1.0*ArithmeticHarmonicCutScore);  // feature maximized
 		}
 	} // evaluate
 
@@ -417,7 +440,7 @@ v
 		Instances dataClusterer = null;
 
 		// Use the individual chromosome as the selected features: '1' selected, '0' filtered
-		// i.e. Select attributes to be removed based on Individual's chromosome
+		// i.e. Select attributes to be removed based on Individual's chromosMome
 		Remove filter = new Remove();
 		int cntFilteredAttr = 0;  // count the number of attributes to be removed
 		for (int i=0; i<variable.getNumberOfBits(); ++i){
@@ -451,6 +474,34 @@ v
 	
 	public String getDataFileName(){
 		return this.dataFileName;
+	}
+	
+	
+	/***
+	 * Calculate the Arithmetic Harmonic Cut score
+	 * @return
+	 */
+	public double getArithmeticHarmonicCutScore(double[][] distMatrix, int[] clusterAssignment){
+		double AHCS=0;
+		
+		double ahcsT1 =0;
+		double ahcsT2 = 0;
+		
+		for (int i=0; i<clusterAssignment.length; ++i){
+			
+			for (int j=i+1; j<clusterAssignment.length; ++j){
+				if (clusterAssignment[i]==clusterAssignment[j]){ // both belongs the the same cluster
+					ahcsT2 += 1.0/(distMatrix[i][j]);
+				}
+				else{
+					ahcsT1 += distMatrix[i][j];
+				}
+			}
+		}
+		
+		AHCS = ahcsT1 * ahcsT2;
+		
+		return AHCS;
 	}
 
 } // SurvivalAnalysis

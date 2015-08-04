@@ -27,6 +27,7 @@ import jmetal.util.JMException;
 import jmetal.util.Ranking;
 import jmetal.util.comparators.CrowdingComparator;
 import jmetal.util.parallel.IParallelEvaluator;
+import jmetal.problems.SurvivalAnalysis;
 
 import java.util.List;
 
@@ -99,13 +100,41 @@ public class pNSGAII extends Algorithm {
     crossoverOperator = operators_.get("crossover");
     selectionOperator = operators_.get("selection");
 
+    
+    // changed by Nasimul: starts
+    
     // Create the initial solutionSet
     Solution newSolution;
     for (int i = 0; i < populationSize; i++) {
-      newSolution = new Solution(problem_);
-      parallelEvaluator_.addSolutionForEvaluation(newSolution) ;
+		double minRate = 0.1;  // need to change based on whether we are maximizing or minimizing the features
+		double maxRate = 0.5; // need to change based on whether we are maximizing or minimizing the features
+		problem_.probability =   Math.pow((maxRate/minRate), Math.pow(i/populationSize,2) )*minRate; //((maxRate-minRate)*i)/populationSize + minRate;
+    	newSolution = new Solution(problem_);
+    	parallelEvaluator_.addSolutionForEvaluation(newSolution) ;
     }
+    
+    
+    
+	// Create the initial solutionSet
+	/*
+	Solution newSolution;
+	for (int i = 0; i < populationSize; i++) {
+  		newSolution = new Solution(problem_);
+  		problem_.evaluate(newSolution);
+  		problem_.evaluateConstraints(newSolution);
+  		evaluations++;
+  		population.add(newSolution);
+	} //for       
 
+	 */
+
+	int genCount = 0;
+	
+	String dataFileName = ((SurvivalAnalysis)problem_).getDataFileName();
+	
+	// changed by Nasimul: ends
+    
+    
     List<Solution> solutionList = parallelEvaluator_.parallelEvaluation() ;
     for (Solution solution : solutionList) {
       population.add(solution) ;
@@ -114,7 +143,8 @@ public class pNSGAII extends Algorithm {
 
     // Generations 
     while (evaluations < maxEvaluations) {
-      // Create the offSpring solutionSet      
+ 
+    	// Create the offSpring solutionSet      
       offspringPopulation = new SolutionSet(populationSize);
       Solution[] parents = new Solution[2];
       for (int i = 0; i < (populationSize / 2); i++) {
@@ -192,7 +222,23 @@ public class pNSGAII extends Algorithm {
         } // if
       } // if
       
-    } // while
+      
+      //changed by Nasimul to print intermediate results: starts
+	    ++genCount;
+	    
+	    if (genCount % 100 ==0){ // print intermediate results every 100 generations
+	    	
+	    	System.out.println("Generation " + genCount + " completed.");
+	    	// Print the first non-dominated front
+	    	Ranking prntRanking = new Ranking(population);
+			ranking.getSubfront(0).printFeasibleFUN("FUN_NSGAII") ;
+
+			SolutionSet printPopulation=ranking.getSubfront(0);
+			printPopulation.printVariablesToFile("VAR-"+dataFileName+"-Gen-"+genCount);    
+			printPopulation.printObjectivesToFile("FUN-"+dataFileName+"-Gen-"+genCount);
+	    }
+
+     } // while
 
     parallelEvaluator_.stopEvaluator();
 
